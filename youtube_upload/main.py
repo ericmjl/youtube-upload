@@ -135,6 +135,11 @@ def build_request_body(options, index, total_videos):
             "recordingDate": options.recording_date,
         },
     }
+    # selfDeclaredMadeForKids is only emitted when explicitly set: YouTube uses
+    # the channel-level default when the field is absent, and some channels
+    # reject uploads unless it is declared.
+    if options.made_for_kids or options.not_made_for_kids:
+        body["status"]["selfDeclaredMadeForKids"] = bool(options.made_for_kids)
     return body
 
 
@@ -196,11 +201,11 @@ def run_main(parser, options, args, output=sys.stdout):
             youtube.thumbnails().set(
                 videoId=video_id, media_body=options.thumb
             ).execute()
-        if options.playlist:
+        for playlist_title in options.playlist or []:
             playlists.add_video_to_playlist(
                 youtube,
                 video_id,
-                title=lib.to_utf8(options.playlist),
+                title=lib.to_utf8(playlist_title),
                 privacy=options.privacy,
             )
         output.write(video_id + "\n")
@@ -287,7 +292,10 @@ def build_parser():
     parser.add_argument(
         "--playlist",
         dest="playlist",
-        help="Playlist title (created if it does not exist)",
+        action="append",
+        default=[],
+        help="Playlist title to add the video to (created if missing). Repeatable: "
+        "--playlist A --playlist B adds to both.",
     )
     parser.add_argument(
         "--title-template",
@@ -302,6 +310,20 @@ def build_parser():
         action="store_true",
         default=True,
         help="Video is embeddable (default)",
+    )
+    parser.add_argument(
+        "--made-for-kids",
+        dest="made_for_kids",
+        action="store_true",
+        help="Declare the video as made for kids (COPPA). Some channels require "
+        "this to be set explicitly or YouTube will not publish the upload.",
+    )
+    parser.add_argument(
+        "--not-made-for-kids",
+        dest="not_made_for_kids",
+        action="store_true",
+        help="Declare the video as not made for kids (COPPA). Mutually exclusive "
+        "with --made-for-kids.",
     )
 
     # Authentication
@@ -357,6 +379,17 @@ def main(arguments):
                 f"Description file not found: {options.description_file}"
             )
         options.description = Path(options.description_file).read_text(encoding="utf-8")
+
+    # Interpret a literal two-character "\\n" sequence as a newline so a shell
+    # `--description="line1\nline2"` (or chapters timestamps) produces real line
+    # breaks (upstream dropped this on Python 3; issues #243/#272/#355/#374).
+    if options.description:
+        options.description = options.description.replace("\\n", "\n")
+
+    if options.made_for_kids and options.not_made_for_kids:
+        raise OptionsError(
+            "--made-for-kids and --not-made-for-kids are mutually exclusive"
+        )
 
     try:
         run_main(parser, options, options.videos)
