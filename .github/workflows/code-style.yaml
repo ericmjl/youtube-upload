@@ -1,0 +1,29 @@
+# Run code style checks on each pull request.
+name: Code style checks
+
+on: [pull_request]
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+    name: Lint and format
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync environment (for pre-commit tooling)
+        run: uv sync --extra dev
+
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files
+
+      - name: Check docstring coverage (interrogate)
+        # Run via the uv env (not as a pre-commit hook): interrogate 1.5.0
+        # imports `pkg_resources`, absent in pre-commit's isolated Py3.13 env.
+        run: uv run interrogate -c pyproject.toml youtube_upload

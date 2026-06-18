@@ -1,0 +1,131 @@
+name: Release Python Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "One of major, minor, or patch"
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: patch
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  DEFAULT_VERSION_NAME: patch
+
+jobs:
+  deploy-package:
+    runs-on: ubuntu-latest
+    name: ${{ github.event_name == 'pull_request' && '(Dry Run) Publish Python Package' || 'Publish Python Package to PyPI' }}
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set version name
+        run: echo "VERSION_NAME=${{ github.event.inputs.version_name || env.DEFAULT_VERSION_NAME }}" >> $GITHUB_ENV
+
+      - name: Read current version
+        run: echo "CURRENT_VERSION=$(uv version --short)" >> $GITHUB_ENV
+
+      - name: Compute new version
+        run: |
+          CURRENT="$CURRENT_VERSION"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          MAJOR="${MAJOR:-0}"; MINOR="${MINOR:-0}"; PATCH="${PATCH:-0}"
+          case "$VERSION_NAME" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+            *) echo "Invalid version_name: $VERSION_NAME"; exit 1 ;;
+          esac
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "Bumping $CURRENT -> $NEW_VERSION ($VERSION_NAME)"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version in pyproject.toml
+        run: uv version --frozen --bump "$VERSION_NAME"
+
+      - name: Commit version bump
+        run: |
+          git add -u
+          git commit -m "Bump version to $NEW_VERSION" || echo "Nothing to commit"
+
+      - name: Create annotated tag
+        run: git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+
+      - name: Build distributions
+        run: uv build --sdist --wheel
+
+      # On a real run (workflow_dispatch), guard against re-publishing an
+      # existing PyPI release before anything is pushed.
+      - name: Verify release does not already exist on PyPI
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/youtube-upload/$NEW_VERSION/json" || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "::error::youtube-upload $NEW_VERSION already exists on PyPI (HTTP $STATUS). Aborting."
+            exit 1
+          fi
+          echo "OK: $NEW_VERSION not found on PyPI (HTTP $STATUS)."
+
+      - name: Push commit and tag
+        if: ${{ github.event_name != 'pull_request' }}
+        run: git push --atomic origin main "refs/tags/v$NEW_VERSION"
+
+      - name: Create GitHub release
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ env.NEW_VERSION }}
+          name: v${{ env.NEW_VERSION }}
+          generateReleaseNotes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to PyPI (trusted publishing)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: uv publish --trusted-publishing always
+
+      # Reversibility: if any publish-side step failed, roll back the commit and
+      # tag. NOTE: a PyPI upload that already succeeded is irreversible.
+      - name: Rollback on failure
+        if: ${{ failure() && github.event_name != 'pull_request' }}
+        run: |
+          set +e
+          echo "Release failed; rolling back git state for v$NEW_VERSION."
+          git push origin --delete "refs/tags/v$NEW_VERSION" 2>/dev/null || true
+          git tag -d "v$NEW_VERSION" 2>/dev/null || true
+          git reset --hard HEAD~1
+          git push --force origin main
+          echo "Rollback complete (PyPI, if reached, is irreversible)."
+
+      - name: Release complete
+        if: ${{ github.event_name != 'pull_request' }}
+        run: echo "Auto-release of v$NEW_VERSION complete!"
