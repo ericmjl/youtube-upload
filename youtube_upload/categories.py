@@ -46,7 +46,7 @@ IDS = {
 }
 
 
-def get(region_code="us", api_key=None):
+def get(region_code: str = "us", api_key: str | None = None) -> dict[str, str]:
     """Fetch the live category list for a region.
 
     :param region_code: ISO 3166-1 alpha-2 region code (default ``"us"``).

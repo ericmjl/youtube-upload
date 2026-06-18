@@ -61,7 +61,7 @@ EXIT_CODES = {
 }
 
 
-def open_link(url):
+def open_link(url: str) -> None:
     """Open ``url`` in the user's default web browser.
 
     :param url: the URL to open.
@@ -85,7 +85,7 @@ def get_progress_info():
     return ProgressInfo(callback=_callback, finish=_finish)
 
 
-def get_category_id(category):
+def get_category_id(category: str | None) -> str | None:
     """Return the YouTube category ID for a human-readable ``category`` name.
 
     :param category: category name (e.g. ``"Music"``).

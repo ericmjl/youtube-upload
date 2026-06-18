@@ -22,3 +22,8 @@ jobs:
 
       - name: Run pre-commit
         run: uv run pre-commit run --all-files
+
+      - name: Check docstring coverage (interrogate)
+        # Run via the uv env (not as a pre-commit hook): interrogate 1.5.0
+        # imports `pkg_resources`, absent in pre-commit's isolated Py3.13 env.
+        run: uv run interrogate -c pyproject.toml youtube_upload

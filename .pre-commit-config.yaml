@@ -7,13 +7,8 @@ repos:
       - id: trailing-whitespace
       - id: check-added-large-files
         args: [--maxkb=500]
-  - repo: https://github.com/econchick/interrogate
-    rev: 1.5.0
-    hooks:
-      - id: interrogate
-        args: [-c, pyproject.toml]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.15.17
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
@@ -24,3 +19,6 @@ repos:
       - id: pydoclint
         args:
           - "--config=pyproject.toml"
+# Note: docstring coverage (interrogate) is enforced in CI (code-style.yaml)
+# via `uv run interrogate`, not as a pre-commit hook, because interrogate 1.5.0
+# imports `pkg_resources` which is absent in pre-commit's isolated Py3.13 env.

@@ -10,8 +10,8 @@
 #
 
 # Echo to standard error
-debug() { 
-  echo "$@" >&2 
+debug() {
+  echo "$@" >&2
 }
 
 # Returns duration (in seconds) of a video $1 (uses ffmpeg).
@@ -19,10 +19,10 @@ get_video_duration() {
   OUTPUT=$(ffmpeg -i "$1" -vframes 1 -f rawvideo -y /dev/null 2>&1) ||
     { debug -e "get_video_duration: error running ffmpeg:\n$OUTPUT"; return 1; }
   DURATION=$(echo "$OUTPUT" | grep -m1 "^[[:space:]]*Duration:" |
-    cut -d":" -f2- | cut -d"," -f1 | sed "s/[:\.]/ /g") || 
+    cut -d":" -f2- | cut -d"," -f1 | sed "s/[:\.]/ /g") ||
     { debug -e "get_video_duration: error parsing duration:\n$OUTPUT"; return 1; }
   read HOURS MINUTES SECONDS DECISECONDS <<< "$DURATION"
-  echo $((10#$HOURS * 3600 + 10#$MINUTES * 60 + 10#$SECONDS))      
+  echo $((10#$HOURS * 3600 + 10#$MINUTES * 60 + 10#$SECONDS))
 }
 
 main() {
@@ -43,14 +43,14 @@ main() {
   fi
 
   EXTENSION=${VIDEO##*.}
-  BASENAME=$(basename "$VIDEO" ".$EXTENSION")           
+  BASENAME=$(basename "$VIDEO" ".$EXTENSION")
   debug "start split: $VIDEO ($DURATION seconds)"
   seq 0 $CHUNK_DURATION $DURATION | cat -n | while read INDEX OFFSET; do
     debug "$VIDEO: from position $OFFSET take $CHUNK_DURATION seconds"
     PADDED_INDEX=$(printf '%03d' $INDEX)
     OUTPUT_FILE="${BASENAME}.part${PADDED_INDEX}.mkv"
     ffmpeg -i "$VIDEO" -vcodec copy -acodec copy "$@" \
-           -ss $OFFSET -t $CHUNK_DURATION -y "$OUTPUT_FILE" </dev/null 
+           -ss $OFFSET -t $CHUNK_DURATION -y "$OUTPUT_FILE" </dev/null
     echo "$OUTPUT_FILE"
   done
 }
