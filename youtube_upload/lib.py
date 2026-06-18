@@ -4,6 +4,7 @@ import random
 import signal
 import sys
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 
 import googleapiclient.errors
@@ -39,17 +40,31 @@ def debug(obj, fd=sys.stderr):
     print(obj, file=fd)
 
 
-def catch_exceptions(exit_codes, fun, *args, **kwargs):
-    """
-    Catch exceptions on fun(*args, **kwargs) and return the exit code specified
-    in the exit_codes dictionary. Return 0 if no exception is raised.
+def catch_exceptions(
+    exit_codes: dict[type[BaseException], int],
+    fun: Callable[[list[str]], object],
+    arguments: list[str] | None = None,
+) -> int:
+    """Run ``fun(arguments)`` and return the mapped exit code on a known exception.
+
+    Matches the raised exception against ``exit_codes`` by walking its MRO, so a
+    subclass (e.g. ``RefreshError``) is correctly mapped via a registered base
+    class (e.g. ``GoogleAuthError``). Returns 0 if no exception is raised.
+
+    :param exit_codes: mapping of exception type -> exit code.
+    :param fun: callable invoked as ``fun(arguments)``.
+    :param arguments: argument list forwarded to ``fun`` (e.g. ``sys.argv[1:]``).
+    :returns: the mapped exit code, or 0 on success.
     """
     try:
-        fun(*args, **kwargs)
+        fun(list(arguments or []))
         return 0
     except tuple(exit_codes.keys()) as exc:
-        debug(f"[{exc.__class__.__name__}] {exc}")
-        return exit_codes[exc.__class__]
+        for exc_type in type(exc).__mro__:
+            if exc_type in exit_codes:
+                debug(f"[{exc_type.__name__}] {exc}")
+                return exit_codes[exc_type]
+        return 1  # pragma: no cover - unreachable: exc is guaranteed in keys
 
 
 def first(it):

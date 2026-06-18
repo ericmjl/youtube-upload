@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import argparse
 import collections
+import os
 import sys
 import webbrowser
+from pathlib import Path
 
+import google.auth.exceptions
 import googleapiclient.errors
 from tqdm import tqdm
 
@@ -51,12 +54,15 @@ class AuthenticationError(Exception):
 
 
 # Maps an exception type raised anywhere in the flow to the process exit code
-# used by ``lib.catch_exceptions``.
+# used by ``lib.catch_exceptions``. ``GoogleAuthError`` is the base of the
+# google-auth failure family (``RefreshError``, ``TransportError``, ...) and is
+# the modern successor to the legacy ``oauth2client.client.FlowExchangeError``.
 EXIT_CODES = {
     OptionsError: 2,
     InvalidCategory: 3,
     RequestError: 3,
     AuthenticationError: 4,
+    google.auth.exceptions.GoogleAuthError: 4,
     NotImplementedError: 5,
 }
 
@@ -346,9 +352,14 @@ def main(arguments):
     parser = build_parser()
     options = parser.parse_args(arguments)
 
-    if options.description_file and options.description_file != "-":
-        with open(options.description_file, encoding="utf-8") as fh:
-            options.description = fh.read()
+    if options.description_file == "-":
+        options.description = sys.stdin.read()
+    elif options.description_file:
+        if not os.path.exists(options.description_file):
+            raise OptionsError(
+                f"Description file not found: {options.description_file}"
+            )
+        options.description = Path(options.description_file).read_text(encoding="utf-8")
 
     try:
         run_main(parser, options, options.videos)

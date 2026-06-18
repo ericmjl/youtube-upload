@@ -145,7 +145,10 @@ def get_resource(
         YouTube Data API v3.
     """
     client_secrets = resolve_path(
-        client_secrets_file, ENV_CLIENT_SECRETS, DEFAULT_CLIENT_SECRETS
+        client_secrets_file,
+        ENV_CLIENT_SECRETS,
+        DEFAULT_CLIENT_SECRETS,
+        local_filename="client_secrets.json",
     )
     token = resolve_path(
         credentials_file, ENV_TOKEN, DEFAULT_TOKEN, local_filename="token.json"
