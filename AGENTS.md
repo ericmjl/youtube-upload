@@ -37,6 +37,12 @@ stub) so instructions do not conflict.
   which wires the CLI to **Typer**. A future Typer migration is a possible
   follow-up, but until then keep argparse and do not introduce Typer.
 - **Docs**: **MkDocs** (Material) — `mkdocs.yaml`, `docs/`.
+- **Retry / backoff**: **tenacity**. Always use `tenacity` (e.g.
+  `tenacity.Retrying`/`@retry`) for retry-with-backoff — do **not** hand-roll
+  retry/sleep loops. The resumable upload (`youtube_upload/upload_video.py`) is
+  the reference implementation: per-`next_chunk` retry with a custom
+  `retry_if_exception(is_retriable)` predicate and
+  `wait_exponential_jitter(initial=1, max=60)`.
 
 When adding dependencies, declare them in **`pyproject.toml`** (`[project]` for
 runtime, `[project.optional-dependencies].dev` for dev tooling) and re-sync with

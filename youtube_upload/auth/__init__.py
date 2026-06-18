@@ -21,8 +21,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import googleapiclient.discovery
+import httplib2
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_httplib2 import AuthorizedHttp
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 from .. import lib
@@ -157,9 +159,28 @@ def get_resource(
     lib.debug(f"Using credentials file: {token}")
     open_browser = bool(get_code_callback)
     credentials = _load_or_authorize(client_secrets, token, open_browser)
+    # Build the HTTP transport explicitly so we can patch the 308 redirect quirk.
+    return _build_youtube_resource(credentials)
+
+
+def _build_youtube_resource(credentials: Credentials):
+    """Build an authenticated YouTube resource with the httplib2 308 fix applied.
+
+    ``httplib2`` (<=0.31) classifies HTTP 308 — the resumable-upload "resume
+    here" signal — as a redirect and tries to follow a ``Location`` header,
+    crashing with ``RedirectMissingLocation`` (upstream #293). Removing 308 from
+    the redirect set lets the 308 reach googleapiclient, which reads the
+    ``Range`` header to resume the upload.
+
+    :param credentials: authorized google-auth ``Credentials``.
+    :returns: an authenticated YouTube Data API v3 Resource.
+    """
+    http = httplib2.Http()
+    http.redirect_codes = http.redirect_codes - {308}
+    authorized_http = AuthorizedHttp(credentials, http=http)
     return googleapiclient.discovery.build(
         "youtube",
         "v3",
-        credentials=credentials,
+        http=authorized_http,
         cache_discovery=False,
     )
