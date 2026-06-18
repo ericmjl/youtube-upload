@@ -152,6 +152,20 @@ uv run ruff format           # format
 pre-commit install           # enable pre-commit hooks
 ```
 
+### Verifying a real upload end to end
+
+The unit suite (`uv run pytest`) verifies all logic offline. For a live
+round-trip against the YouTube API, run:
+
+```bash
+uv run python scripts/verify_e2e.py
+```
+
+It uploads a private 2-second test clip through the real CLI, verifies it via
+the API (including the `--made-for-kids` and description-newline handling), then
+deletes it. The first run opens a browser once for OAuth consent; afterwards the
+token persists and uploads run unattended. Exit code `0` means PASS.
+
 ## Credits
 
 Forked from [`tokland/youtube-upload`](https://github.com/tokland/youtube-upload)
