@@ -33,10 +33,6 @@ debug = lib.debug
 ProgressInfo = collections.namedtuple("ProgressInfo", ["callback", "finish"])
 
 
-class UploadError(Exception):
-    """Raised when an upload fails for a non-retriable reason."""
-
-
 class OptionsError(Exception):
     """Raised when required CLI options are missing or invalid."""
 
@@ -63,6 +59,7 @@ EXIT_CODES = {
     RequestError: 3,
     AuthenticationError: 4,
     google.auth.exceptions.GoogleAuthError: 4,
+    upload_video.UploadError: 3,
     NotImplementedError: 5,
 }
 

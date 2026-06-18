@@ -1,13 +1,9 @@
 import locale
 import os
-import random
 import signal
 import sys
-import time
 from collections.abc import Callable
 from contextlib import contextmanager
-
-import googleapiclient.errors
 
 
 @contextmanager
@@ -67,11 +63,6 @@ def catch_exceptions(
         return 1  # pragma: no cover - unreachable: exc is guaranteed in keys
 
 
-def first(it):
-    """Return first element in iterable."""
-    return it.next()
-
-
 def string_to_dict(string):
     """Return dictionary from string "key1=value1, key2=value2"."""
     if string:
@@ -85,38 +76,3 @@ def get_first_existing_filename(prefixes, relative_path):
         path = os.path.join(prefix, relative_path)
         if os.path.exists(path):
             return path
-
-
-def retriable_exceptions(fun, retriable_exceptions, max_retries=None):
-    """Run function and retry on some exceptions (with exponential backoff)."""
-    retry = 0
-    while 1:
-        try:
-            return fun()
-        except tuple(retriable_exceptions) as exc:
-            retry += 1
-            if type(exc) not in retriable_exceptions:
-                raise exc
-            # we want to retry 5xx errors only
-            elif (
-                isinstance(exc, googleapiclient.errors.HttpError)
-                and exc.resp.status < 500
-            ):
-                raise exc
-            elif max_retries is not None and retry > max_retries:
-                debug("[Retryable errors] Retry limit reached")
-                raise exc
-            else:
-                seconds = random.uniform(0, 2**retry)
-                message = (
-                    "[Retryable error {current_retry}/{total_retries}] "
-                    + "{error_type} ({error_msg}). Wait {wait_time} seconds"
-                ).format(
-                    current_retry=retry,
-                    total_retries=max_retries or "-",
-                    error_type=type(exc).__name__,
-                    error_msg=str(exc) or "-",
-                    wait_time=f"{seconds:.1f}",
-                )
-                debug(message)
-                time.sleep(seconds)
