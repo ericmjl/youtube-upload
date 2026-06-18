@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep GitHub Actions in workflows up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  # Runtime and dev dependencies are declared in pyproject.toml and resolved
+  # from PyPI via uv.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -1,0 +1,44 @@
+site_name: youtube-upload
+site_url: https://ericmjl.github.io/youtube-upload/
+
+docs_dir: docs/
+
+theme:
+  name: material
+  icon:
+    logo: fontawesome/solid/video
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - markdown.extensions.attr_list
+
+nav:
+  - Home: index.md
+  - Usage: index.md
+
+repo_name: ericmjl/youtube-upload
+repo_url: https://github.com/ericmjl/youtube-upload
+edit_uri: edit/main/docs/

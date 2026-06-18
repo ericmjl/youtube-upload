@@ -1,13 +1,16 @@
-try:
-    #import urllib2 
-    from urllib2 import urlopen    
-    import urllib
-except ImportError:
-    from urllib.request import urlopen
+"""YouTube video category helpers."""
+
+from __future__ import annotations
+
 import json
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 URL = "https://www.googleapis.com/youtube/v3/videoCategories"
 
+# Static fallback map (category name -> id). Used by the CLI so that no network
+# request is required to resolve a category. The ``get`` function below fetches
+# the live, region-specific list when needed.
 IDS = {
     "Film & Animation": 1,
     "Autos & Vehicles": 2,
@@ -42,10 +45,17 @@ IDS = {
     "Trailers": 44,
 }
 
+
 def get(region_code="us", api_key=None):
-    params = dict(part="snippet", regionCode=region_code, key=api_key)  
-    full_url = URL + "?" + urllib.urlencode(params)
+    """Fetch the live category list for a region.
+
+    :param region_code: ISO 3166-1 alpha-2 region code (default ``"us"``).
+    :param api_key: optional YouTube Data API key.
+    :returns: mapping of category title to category id.
+    """
+    params = dict(part="snippet", regionCode=region_code, key=api_key)
+    full_url = f"{URL}?{urlencode(params)}"
     response = urlopen(full_url)
     categories_info = json.loads(response.read())
     items = categories_info["items"]
-    return dict((item["snippet"]["title"], item["id"]) for item in items)
+    return {item["snippet"]["title"]: item["id"] for item in items}
